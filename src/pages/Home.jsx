@@ -1,6 +1,47 @@
+import { useState, useEffect } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Star, Trophy, Calendar, ShoppingBag, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+
+const EmojiRain = () => {
+    const [drops, setDrops] = useState([])
+
+    useEffect(() => {
+        const newDrops = Array.from({ length: 25 }).map((_, i) => ({
+            id: i,
+            emoji: Math.random() > 0.5 ? '⚡️' : '🥒',
+            x: Math.random() * 100,
+            delay: Math.random() * 5,
+            duration: 6 + Math.random() * 6,
+            size: 24 + Math.random() * 32,
+            rotateStart: Math.random() * 360,
+            rotateEnd: Math.random() * 360 + (Math.random() > 0.5 ? 360 : -360)
+        }))
+        setDrops(newDrops)
+    }, [])
+
+    return (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {drops.map((drop) => (
+                <motion.div
+                    key={drop.id}
+                    initial={{ y: -100, x: `${drop.x}vw`, rotate: drop.rotateStart, opacity: 0 }}
+                    animate={{ y: '120vh', rotate: drop.rotateEnd, opacity: [0, 0.5, 0.5, 0] }}
+                    transition={{
+                        duration: drop.duration,
+                        repeat: Infinity,
+                        delay: drop.delay,
+                        ease: "linear"
+                    }}
+                    className="absolute"
+                    style={{ fontSize: `${drop.size}px`, filter: 'drop-shadow(0 0 15px rgba(164, 255, 0, 0.3))' }}
+                >
+                    {drop.emoji}
+                </motion.div>
+            ))}
+        </div>
+    )
+}
 
 const Hero = () => {
     const { scrollY } = useScroll()
@@ -9,6 +50,7 @@ const Hero = () => {
 
     return (
         <section className="relative min-h-[90vh] flex items-center justify-center pt-20 overflow-hidden bg-mesh noise-bg">
+            <EmojiRain />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 pt-20 pb-20">
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
