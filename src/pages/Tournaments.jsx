@@ -10,6 +10,7 @@ const Tournaments = () => {
     const [format, setFormat] = useState('round-robin')
     const [teamSize, setTeamSize] = useState('doubles')
     const [gauntletWinners, setGauntletWinners] = useState({})
+    const [activeRound, setActiveRound] = useState(1)
 
     const addPlayer = () => {
         if (newPlayer && players.length < 12) {
@@ -31,10 +32,23 @@ const Tournaments = () => {
     const generateSchedule = () => {
         setIsGenerating(true)
         setGauntletWinners({}) // Reset winners
+        setActiveRound(1) // Reset Gauntlet progression
         setTimeout(() => {
             const generatedMatches = []
 
+            // Special case for exactly 4 players in doubles round-robin (True Mixer)
+            if (format === 'round-robin' && teamSize === 'doubles' && players.length === 4) {
+                generatedMatches.push({ round: 1, matches: [{ p1: `${players[0]} & ${players[1]}`, p2: `${players[2]} & ${players[3]}` }] });
+                generatedMatches.push({ round: 2, matches: [{ p1: `${players[0]} & ${players[2]}`, p2: `${players[3]} & ${players[1]}` }] });
+                generatedMatches.push({ round: 3, matches: [{ p1: `${players[0]} & ${players[3]}`, p2: `${players[1]} & ${players[2]}` }] });
+
+                setMatches(generatedMatches)
+                setIsGenerating(false)
+                return;
+            }
+
             let activePlayers = [...players]
+
             if (teamSize === 'doubles') {
                 activePlayers = []
                 for (let i = 0; i < players.length; i += 2) {
@@ -78,8 +92,74 @@ const Tournaments = () => {
     }
 
     const handleWinnerSelect = (roundIndex, winnerName) => {
-        if (format !== 'gauntlet') return
+        const isTrueMixer = format === 'round-robin' && teamSize === 'doubles' && players.length === 4;
+        if (format !== 'gauntlet' && !isTrueMixer) return
+        // Only allow changing the winner of the CURRENT active round, not past ones
+        if (roundIndex < activeRound) return;
         setGauntletWinners(prev => ({ ...prev, [roundIndex]: winnerName }))
+    }
+
+    const advanceRound = () => {
+        if (activeRound < matches.length) {
+            setActiveRound(prev => prev + 1)
+        } else if (format === 'round-robin' && teamSize === 'doubles' && players.length === 4) {
+            // Infinite true mixer logic
+            // Round 1 -> Index 0 pattern, Round 2 -> Index 1 pattern, Round 3 -> Index 2 pattern
+            const patternIndex = activeRound % 3;
+            let p1, p2;
+
+            if (patternIndex === 0) {
+                // Same as Round 1
+                p1 = `${players[0]} & ${players[1]}`;
+                p2 = `${players[2]} & ${players[3]}`;
+            } else if (patternIndex === 1) {
+                // Same as Round 2
+                p1 = `${players[0]} & ${players[2]}`;
+                p2 = `${players[3]} & ${players[1]}`;
+            } else {
+                // Same as Round 3
+                p1 = `${players[0]} & ${players[3]}`;
+                p2 = `${players[1]} & ${players[2]}`;
+            }
+
+            const newMatch = {
+                round: activeRound + 1,
+                matches: [{ p1, p2 }]
+            };
+
+            setMatches(prev => [...prev, newMatch]);
+            setActiveRound(prev => prev + 1);
+        } else if (format === 'gauntlet') {
+            // Dynamically generate the next match for infinite mode
+            let activePlayers = [...players]
+            if (teamSize === 'doubles') {
+                activePlayers = []
+                for (let i = 0; i < players.length; i += 2) {
+                    if (i + 1 < players.length) {
+                        activePlayers.push(`${players[i]} & ${players[i + 1]}`)
+                    } else {
+                        activePlayers.push(`${players[i]} & BYE`)
+                    }
+                }
+            }
+
+            // Cycle back to the beginning of the list, 
+            // roundIndex starts at 1, so for activePlayers.length = 3, round 3 plays index 0 again
+            const nextChallengerIndex = activeRound % activePlayers.length
+            const nextChallenger = activePlayers[nextChallengerIndex]
+
+            const newMatch = {
+                round: activeRound + 1,
+                matches: [{
+                    p1: `Winner of Game ${activeRound}`,
+                    p2: nextChallenger,
+                    isP1Dynamic: true
+                }]
+            }
+
+            setMatches(prev => [...prev, newMatch])
+            setActiveRound(prev => prev + 1)
+        }
     }
 
     const getDynamicPlayer1 = (match, roundIndex) => {
@@ -227,49 +307,76 @@ const Tournaments = () => {
                                     animate={{ opacity: 1 }}
                                     className="space-y-12 max-h-[700px] overflow-y-auto pr-4 custom-scrollbar"
                                 >
-                                    {matches.map((round) => (
-                                        <div key={round.round}>
-                                            <div className="inline-block text-xs font-black text-pickle-green mb-5 uppercase tracking-[0.3em] px-4 py-1.5 bg-pickle-green/10 rounded-lg border border-pickle-green/20">
-                                                {format === 'gauntlet' ? 'Game' : 'Round'} {round.round}
-                                            </div>
-                                            <div className={`grid grid-cols-1 ${format === 'gauntlet' || teamSize === 'doubles' ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-4`}>
-                                                {round.matches.map((match, mIdx) => {
-                                                    const p1Display = getDynamicPlayer1(match, round.round)
-                                                    const p2Display = match.p2
-                                                    const isP1Winner = gauntletWinners[round.round] === p1Display
-                                                    const isP2Winner = gauntletWinners[round.round] === p2Display
+                                    {matches
+                                        .filter(round => round.round <= activeRound)
+                                        .map((round) => (
+                                            <div key={round.round}>
+                                                <div className="inline-block text-xs font-black text-pickle-green mb-5 uppercase tracking-[0.3em] px-4 py-1.5 bg-pickle-green/10 rounded-lg border border-pickle-green/20">
+                                                    {format === 'gauntlet' ? 'Game' : 'Round'} {round.round}
+                                                </div>
+                                                <div className={`grid grid-cols-1 ${format === 'gauntlet' || teamSize === 'doubles' ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-4`}>
+                                                    {round.matches.map((match, mIdx) => {
+                                                        const p1Display = getDynamicPlayer1(match, round.round)
+                                                        const p2Display = match.p2
+                                                        const isP1Winner = gauntletWinners[round.round] === p1Display
+                                                        const isP2Winner = gauntletWinners[round.round] === p2Display
+                                                        const isPastRound = round.round < activeRound
+                                                        const isInteractive = format === 'gauntlet' || (format === 'round-robin' && teamSize === 'doubles' && players.length === 4);
 
-                                                    return (
-                                                        <div key={mIdx} className="p-6 bg-pickle-gray/50 rounded-2xl border border-white/5 flex items-center justify-between group">
-                                                            {format === 'gauntlet' ? (
-                                                                <button
-                                                                    onClick={() => handleWinnerSelect(round.round, p1Display)}
-                                                                    className={`font-black text-lg transition-colors hover:text-pickle-green text-left flex-1 ${isP1Winner ? 'text-pickle-green' : 'text-white'}`}
-                                                                >
-                                                                    {p1Display}
-                                                                </button>
-                                                            ) : (
-                                                                <span className="font-black text-lg text-left flex-1">{p1Display}</span>
-                                                            )}
+                                                        return (
+                                                            <div key={mIdx} className={`p-6 bg-pickle-gray/50 rounded-2xl border ${isPastRound ? 'border-transparent opacity-60 grayscale' : 'border-white/5'} flex items-center justify-between group transition-all`}>
+                                                                {isInteractive ? (
+                                                                    <button
+                                                                        onClick={() => handleWinnerSelect(round.round, p1Display)}
+                                                                        disabled={isPastRound}
+                                                                        className={`font-black text-lg transition-colors text-left flex-1 ${isPastRound ? 'cursor-default' : 'hover:text-pickle-green'} ${isP1Winner ? 'text-pickle-green' : 'text-white'} ${isPastRound && !isP1Winner ? 'line-through text-gray-600' : ''}`}
+                                                                    >
+                                                                        {p1Display}
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="font-black text-lg text-left flex-1">{p1Display}</span>
+                                                                )}
 
-                                                            <span className="text-[10px] font-black text-gray-500 tracking-widest px-4 text-center">VS</span>
+                                                                <span className="text-[10px] font-black text-gray-500 tracking-widest px-4 text-center">VS</span>
 
-                                                            {format === 'gauntlet' ? (
-                                                                <button
-                                                                    onClick={() => handleWinnerSelect(round.round, p2Display)}
-                                                                    className={`font-black text-lg transition-colors hover:text-pickle-green text-right flex-1 ${isP2Winner ? 'text-pickle-green' : 'text-white'}`}
-                                                                >
-                                                                    {p2Display}
-                                                                </button>
-                                                            ) : (
-                                                                <span className="font-black text-lg text-right flex-1">{p2Display}</span>
-                                                            )}
+                                                                {isInteractive ? (
+                                                                    <button
+                                                                        onClick={() => handleWinnerSelect(round.round, p2Display)}
+                                                                        disabled={isPastRound}
+                                                                        className={`font-black text-lg transition-colors text-right flex-1 ${isPastRound ? 'cursor-default' : 'hover:text-pickle-green'} ${isP2Winner ? 'text-pickle-green' : 'text-white'} ${isPastRound && !isP2Winner ? 'line-through text-gray-600' : ''}`}
+                                                                    >
+                                                                        {p2Display}
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="font-black text-lg text-right flex-1">{p2Display}</span>
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+
+                                                {/* Next Round Button */}
+                                                {round.round === activeRound &&
+                                                    ((format === 'gauntlet') || (format === 'round-robin' && teamSize === 'doubles' && players.length === 4) || (format === 'round-robin' && activeRound < matches.length)) && (
+                                                        <div className="mt-8 flex justify-center">
+                                                            {(() => {
+                                                                const isTrueMixer = format === 'round-robin' && teamSize === 'doubles' && players.length === 4;
+                                                                const needsWinner = format === 'gauntlet' || isTrueMixer;
+                                                                const isDisabled = needsWinner && !gauntletWinners[activeRound];
+                                                                return (
+                                                                    <button
+                                                                        onClick={advanceRound}
+                                                                        disabled={isDisabled}
+                                                                        className="px-8 py-4 bg-pickle-green text-pickle-dark font-black tracking-widest rounded-xl hover:bg-white transition-all text-sm btn-glow disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-pickle-green disabled:hover:scale-100 disabled:hover:translate-y-0 disabled:btn-glow-none flex items-center gap-3"
+                                                                    >
+                                                                        {isDisabled ? "SELECT A WINNER TO ADVANCE" : "ADVANCE TO NEXT ROUND"}
+                                                                    </button>
+                                                                )
+                                                            })()}
                                                         </div>
-                                                    )
-                                                })}
+                                                    )}
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
                                 </motion.div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-center opacity-30">
