@@ -6,11 +6,8 @@ const Footer = () => (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-center gap-12 mb-20">
                 <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                    <div className="flex items-center mb-6">
-                        <Zap className="h-10 w-10 text-pickle-green mr-3" />
-                        <span className="font-display text-3xl font-black tracking-tighter">ELECTRIC PICKLE</span>
-                    </div>
-                    <p className="text-gray-500 max-w-sm">
+                    <img src="/logo.png" alt="Electric Pickle" className="my-8 md:my-16 h-12 md:h-16 object-contain scale-[4] origin-center md:origin-left" />
+                    <p className="text-gray-500 max-w-sm relative z-10">
                         Redefining the culture of pickleball since 2024. Join the social revolution.
                     </p>
                 </div>

@@ -39,7 +39,7 @@ const Navbar = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between">
                     <Link to="/" className="flex items-center group cursor-pointer">
-                        <div className="relative">
+                        <div className="relative flex items-center">
                             <Zap className="h-8 w-8 text-pickle-green relative z-10 group-hover:scale-110 transition-transform" />
                             <div className="absolute inset-0 bg-pickle-green blur-md opacity-50 group-hover:opacity-80 transition-opacity" />
                         </div>

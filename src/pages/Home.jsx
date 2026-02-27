@@ -63,10 +63,9 @@ const Hero = () => {
                         <Star size={14} className="mr-2 fill-pickle-green" /> The Social Evolution
                     </div>
 
-                    <h1 className="text-7xl md:text-9xl font-display font-black mb-8 leading-[0.9] tracking-tighter">
-                        ELECTRIC <br />
-                        <span className="text-gradient">PICKLE</span>
-                    </h1>
+                    <div className="flex justify-center items-center my-24 md:my-48">
+                        <img src="/logo.png" alt="Electric Pickle" className="h-24 md:h-32 object-contain scale-[7] md:scale-[9] pointer-events-none" />
+                    </div>
 
                     <p className="max-w-2xl mx-auto text-xl md:text-2xl text-gray-400 mb-12 font-medium leading-relaxed">
                         Where high-performance meets high-intensity social connection.
