@@ -11,6 +11,7 @@ const Tournaments = () => {
     const [teamSize, setTeamSize] = useState('doubles')
     const [gauntletWinners, setGauntletWinners] = useState({})
     const [activeRound, setActiveRound] = useState(1)
+    const [isTournamentEnded, setIsTournamentEnded] = useState(false)
 
     const addPlayer = () => {
         if (newPlayer && players.length < 12) {
@@ -33,6 +34,7 @@ const Tournaments = () => {
         setIsGenerating(true)
         setGauntletWinners({}) // Reset winners
         setActiveRound(1) // Reset Gauntlet progression
+        setIsTournamentEnded(false) // Reset leaderboard state
         setTimeout(() => {
             const generatedMatches = []
 
@@ -92,8 +94,6 @@ const Tournaments = () => {
     }
 
     const handleWinnerSelect = (roundIndex, winnerName) => {
-        const isTrueMixer = format === 'round-robin' && teamSize === 'doubles' && players.length === 4;
-        if (format !== 'gauntlet' && !isTrueMixer) return
         // Only allow changing the winner of the CURRENT active round, not past ones
         if (roundIndex < activeRound) return;
         setGauntletWinners(prev => ({ ...prev, [roundIndex]: winnerName }))
@@ -295,12 +295,27 @@ const Tournaments = () => {
                         animate={{ opacity: 1, x: 0 }}
                         className="lg:col-span-7 glass-morphism p-10 rounded-[2.5rem] relative min-h-[600px]"
                     >
-                        <h3 className="text-2xl font-display font-bold mb-10 flex items-center gap-3">
-                            <Trophy className="text-pickle-green" size={28} /> LIVE MATCHUPS
-                        </h3>
+                        {!isTournamentEnded && matches.length > 0 && (
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
+                                <h3 className="text-2xl font-display font-bold flex items-center gap-3">
+                                    <Trophy className="text-pickle-green" size={28} /> LIVE MATCHUPS
+                                </h3>
+                                <button
+                                    onClick={() => setIsTournamentEnded(true)}
+                                    className="px-5 py-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all font-black text-xs tracking-[0.2em] rounded-xl border border-red-500/20 whitespace-nowrap"
+                                >
+                                    END TOURNAMENT
+                                </button>
+                            </div>
+                        )}
+                        {(!matches.length || isTournamentEnded) && !isTournamentEnded && (
+                            <h3 className="text-2xl font-display font-bold mb-10 flex items-center gap-3">
+                                <Trophy className="text-pickle-green" size={28} /> LIVE MATCHUPS
+                            </h3>
+                        )}
 
                         <AnimatePresence mode="wait">
-                            {matches.length > 0 ? (
+                            {matches.length > 0 && !isTournamentEnded ? (
                                 <motion.div
                                     key="matches"
                                     initial={{ opacity: 0 }}
@@ -321,7 +336,7 @@ const Tournaments = () => {
                                                         const isP1Winner = gauntletWinners[round.round] === p1Display
                                                         const isP2Winner = gauntletWinners[round.round] === p2Display
                                                         const isPastRound = round.round < activeRound
-                                                        const isInteractive = format === 'gauntlet' || (format === 'round-robin' && teamSize === 'doubles' && players.length === 4);
+                                                        const isInteractive = true;
 
                                                         return (
                                                             <div key={mIdx} className={`p-6 bg-pickle-gray/50 rounded-2xl border ${isPastRound ? 'border-transparent opacity-60 grayscale' : 'border-white/5'} flex items-center justify-between group transition-all`}>
@@ -377,6 +392,50 @@ const Tournaments = () => {
                                                     )}
                                             </div>
                                         ))}
+                                </motion.div>
+                            ) : isTournamentEnded ? (
+                                <motion.div
+                                    key="leaderboard"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="flex flex-col"
+                                >
+                                    <div className="text-center mb-10">
+                                        <Award className="mx-auto text-pickle-green mb-6" size={64} />
+                                        <h2 className="text-4xl font-display font-black mb-2">TOURNAMENT RESULTS</h2>
+                                        <p className="text-gray-400">Final standings based on match wins.</p>
+                                    </div>
+                                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {players.map(player => {
+                                            const wins = Object.values(gauntletWinners).reduce((count, winnerString) => {
+                                                const winners = winnerString.split('&').map(s => s.trim());
+                                                return count + (winners.includes(player) ? 1 : 0);
+                                            }, 0);
+                                            return { name: player, wins };
+                                        }).sort((a, b) => b.wins - a.wins).map((p, idx) => (
+                                            <div key={idx} className="flex justify-between items-center bg-white/5 p-5 rounded-2xl border border-white/5 hover:border-pickle-green/20 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 ${idx === 0 ? 'bg-pickle-green text-pickle-dark shadow-[0_0_15px_rgba(164,255,0,0.5)]' : idx === 1 ? 'bg-gray-300 text-gray-900 bg-gradient-to-tr from-gray-400 to-gray-100' : idx === 2 ? 'bg-amber-700 text-white bg-gradient-to-tr from-amber-800 to-amber-500' : 'bg-white/10 text-white'}`}>
+                                                        {idx + 1}
+                                                    </div>
+                                                    <span className="font-bold text-xl">{p.name}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-3xl font-black text-pickle-green">{p.wins}</span>
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em] block mt-1">Wins</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setMatches([]);
+                                            setIsTournamentEnded(false);
+                                        }}
+                                        className="w-full mt-10 py-5 bg-pickle-green text-pickle-dark font-black tracking-widest rounded-2xl hover:bg-white transition-all text-lg btn-glow flex items-center justify-center gap-3 uppercase"
+                                    >
+                                        <Users size={24} /> START NEW TOURNAMENT
+                                    </button>
                                 </motion.div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-center opacity-30">
