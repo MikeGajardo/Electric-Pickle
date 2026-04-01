@@ -9,7 +9,7 @@ const Tournaments = () => {
     const [isGenerating, setIsGenerating] = useState(false)
     const [format, setFormat] = useState('round-robin')
     const [teamSize, setTeamSize] = useState('doubles')
-    const [gauntletWinners, setGauntletWinners] = useState({})
+    const [matchResults, setMatchResults] = useState({})
     const [activeRound, setActiveRound] = useState(1)
     const [isTournamentEnded, setIsTournamentEnded] = useState(false)
 
@@ -32,7 +32,7 @@ const Tournaments = () => {
 
     const generateSchedule = () => {
         setIsGenerating(true)
-        setGauntletWinners({}) // Reset winners
+        setMatchResults({}) // Reset winners/scores
         setActiveRound(1) // Reset Gauntlet progression
         setIsTournamentEnded(false) // Reset leaderboard state
         setTimeout(() => {
@@ -93,10 +93,33 @@ const Tournaments = () => {
         }, 600)
     }
 
-    const handleWinnerSelect = (roundIndex, winnerName) => {
+    const handleWinnerSelect = (roundIndex, matchIndex, winnerName, p1Display, p2Display) => {
         // Only allow changing the winner of the CURRENT active round, not past ones
         if (roundIndex < activeRound) return;
-        setGauntletWinners(prev => ({ ...prev, [roundIndex]: winnerName }))
+        setMatchResults(prev => ({
+            ...prev,
+            [`${roundIndex}-${matchIndex}`]: { ...prev[`${roundIndex}-${matchIndex}`], winner: winnerName, p1Display, p2Display }
+        }))
+    }
+
+    const handleScoreChange = (roundIndex, matchIndex, playerKey, score, p1Display, p2Display) => {
+        if (roundIndex < activeRound) return;
+
+        setMatchResults(prev => {
+            const key = `${roundIndex}-${matchIndex}`;
+            const currentObj = prev[key] || {};
+            const parsedScore = score === '' ? '' : Number(score);
+            const newObj = { ...currentObj, [playerKey]: parsedScore, p1Display, p2Display };
+
+            // Auto calculate winner if both scores exist and are numbers
+            if (typeof newObj.p1Score === 'number' && typeof newObj.p2Score === 'number') {
+                if (newObj.p1Score > newObj.p2Score) newObj.winner = p1Display;
+                else if (newObj.p2Score > newObj.p1Score) newObj.winner = p2Display;
+                else newObj.winner = null; // Tie
+            }
+
+            return { ...prev, [key]: newObj };
+        });
     }
 
     const advanceRound = () => {
@@ -164,8 +187,8 @@ const Tournaments = () => {
 
     const getDynamicPlayer1 = (match, roundIndex) => {
         if (format !== 'gauntlet' || !match.isP1Dynamic) return match.p1
-        const previousWinner = gauntletWinners[roundIndex - 1]
-        return previousWinner ? previousWinner : match.p1 // match.p1 holds the "Winner of Game X" fallback string
+        const previousResult = matchResults[`${roundIndex - 1}-0`]
+        return previousResult?.winner ? previousResult.winner : match.p1 // match.p1 holds the "Winner of Game X" fallback string
     }
 
     return (
@@ -333,8 +356,10 @@ const Tournaments = () => {
                                                     {round.matches.map((match, mIdx) => {
                                                         const p1Display = getDynamicPlayer1(match, round.round)
                                                         const p2Display = match.p2
-                                                        const isP1Winner = gauntletWinners[round.round] === p1Display
-                                                        const isP2Winner = gauntletWinners[round.round] === p2Display
+                                                        const resultKey = `${round.round}-${mIdx}`
+                                                        const matchRes = matchResults[resultKey] || {}
+                                                        const isP1Winner = matchRes.winner === p1Display
+                                                        const isP2Winner = matchRes.winner === p2Display
                                                         const isPastRound = round.round < activeRound
                                                         const isInteractive = true;
 
@@ -342,28 +367,46 @@ const Tournaments = () => {
                                                             <div key={mIdx} className={`p-6 bg-pickle-gray/50 rounded-2xl border ${isPastRound ? 'border-transparent opacity-60 grayscale' : 'border-white/5'} flex items-center justify-between group transition-all`}>
                                                                 {isInteractive ? (
                                                                     <button
-                                                                        onClick={() => handleWinnerSelect(round.round, p1Display)}
+                                                                        onClick={() => handleWinnerSelect(round.round, mIdx, p1Display, p1Display, p2Display)}
                                                                         disabled={isPastRound}
-                                                                        className={`font-black text-lg transition-colors text-left flex-1 ${isPastRound ? 'cursor-default' : 'hover:text-pickle-green'} ${isP1Winner ? 'text-pickle-green' : 'text-white'} ${isPastRound && !isP1Winner ? 'line-through text-gray-600' : ''}`}
+                                                                        className={`font-black text-lg transition-colors text-left flex-1 truncate ${isPastRound ? 'cursor-default' : 'hover:text-pickle-green'} ${isP1Winner ? 'text-pickle-green' : 'text-white'} ${isPastRound && !isP1Winner ? 'line-through text-gray-600' : ''}`}
                                                                     >
                                                                         {p1Display}
                                                                     </button>
                                                                 ) : (
-                                                                    <span className="font-black text-lg text-left flex-1">{p1Display}</span>
+                                                                    <span className="font-black text-lg text-left flex-1 truncate">{p1Display}</span>
                                                                 )}
 
-                                                                <span className="text-[10px] font-black text-gray-500 tracking-widest px-4 text-center">VS</span>
+                                                                <div className="flex items-center gap-2 mx-4">
+                                                                    <input
+                                                                        type="number"
+                                                                        value={matchRes.p1Score ?? ''}
+                                                                        onChange={(e) => handleScoreChange(round.round, mIdx, 'p1Score', e.target.value, p1Display, p2Display)}
+                                                                        disabled={isPastRound}
+                                                                        className="w-12 h-10 bg-black/20 border border-white/10 rounded-lg text-center font-black focus:outline-none focus:border-pickle-green text-white disabled:opacity-50 [-moz-appearance:_textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none transition-colors"
+                                                                        placeholder="-"
+                                                                    />
+                                                                    <span className="text-[10px] font-black text-gray-500 tracking-widest text-center">VS</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={matchRes.p2Score ?? ''}
+                                                                        onChange={(e) => handleScoreChange(round.round, mIdx, 'p2Score', e.target.value, p1Display, p2Display)}
+                                                                        disabled={isPastRound}
+                                                                        className="w-12 h-10 bg-black/20 border border-white/10 rounded-lg text-center font-black focus:outline-none focus:border-pickle-green text-white disabled:opacity-50 [-moz-appearance:_textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none transition-colors"
+                                                                        placeholder="-"
+                                                                    />
+                                                                </div>
 
                                                                 {isInteractive ? (
                                                                     <button
-                                                                        onClick={() => handleWinnerSelect(round.round, p2Display)}
+                                                                        onClick={() => handleWinnerSelect(round.round, mIdx, p2Display, p1Display, p2Display)}
                                                                         disabled={isPastRound}
-                                                                        className={`font-black text-lg transition-colors text-right flex-1 ${isPastRound ? 'cursor-default' : 'hover:text-pickle-green'} ${isP2Winner ? 'text-pickle-green' : 'text-white'} ${isPastRound && !isP2Winner ? 'line-through text-gray-600' : ''}`}
+                                                                        className={`font-black text-lg transition-colors text-right flex-1 truncate ${isPastRound ? 'cursor-default' : 'hover:text-pickle-green'} ${isP2Winner ? 'text-pickle-green' : 'text-white'} ${isPastRound && !isP2Winner ? 'line-through text-gray-600' : ''}`}
                                                                     >
                                                                         {p2Display}
                                                                     </button>
                                                                 ) : (
-                                                                    <span className="font-black text-lg text-right flex-1">{p2Display}</span>
+                                                                    <span className="font-black text-lg text-right flex-1 truncate">{p2Display}</span>
                                                                 )}
                                                             </div>
                                                         )
@@ -377,7 +420,7 @@ const Tournaments = () => {
                                                             {(() => {
                                                                 const isTrueMixer = format === 'round-robin' && teamSize === 'doubles' && players.length === 4;
                                                                 const needsWinner = format === 'gauntlet' || isTrueMixer;
-                                                                const isDisabled = needsWinner && !gauntletWinners[activeRound];
+                                                                const isDisabled = needsWinner && !matchResults[`${activeRound}-0`]?.winner;
                                                                 return (
                                                                     <button
                                                                         onClick={advanceRound}
@@ -407,12 +450,35 @@ const Tournaments = () => {
                                     </div>
                                     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                         {players.map(player => {
-                                            const wins = Object.values(gauntletWinners).reduce((count, winnerString) => {
-                                                const winners = winnerString.split('&').map(s => s.trim());
-                                                return count + (winners.includes(player) ? 1 : 0);
-                                            }, 0);
-                                            return { name: player, wins };
-                                        }).sort((a, b) => b.wins - a.wins).map((p, idx) => (
+                                            let wins = 0;
+                                            let pointsFor = 0;
+                                            let pointsAgainst = 0;
+
+                                            Object.values(matchResults).forEach(res => {
+                                                if (!res) return;
+
+                                                const isP1 = res.p1Display?.split('&').map(s => s.trim()).includes(player);
+                                                const isP2 = res.p2Display?.split('&').map(s => s.trim()).includes(player);
+
+                                                if (isP1) {
+                                                    pointsFor += (res.p1Score || 0);
+                                                    pointsAgainst += (res.p2Score || 0);
+                                                } else if (isP2) {
+                                                    pointsFor += (res.p2Score || 0);
+                                                    pointsAgainst += (res.p1Score || 0);
+                                                }
+
+                                                if (res.winner) {
+                                                    const winners = res.winner.split('&').map(s => s.trim());
+                                                    if (winners.includes(player)) {
+                                                        wins += 1;
+                                                    }
+                                                }
+                                            });
+
+                                            const pointDifferential = pointsFor - pointsAgainst;
+                                            return { name: player, wins, pointDifferential };
+                                        }).sort((a, b) => a.wins !== b.wins ? b.wins - a.wins : b.pointDifferential - a.pointDifferential).map((p, idx) => (
                                             <div key={idx} className="flex justify-between items-center bg-white/5 p-5 rounded-2xl border border-white/5 hover:border-pickle-green/20 transition-colors">
                                                 <div className="flex items-center gap-4">
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 ${idx === 0 ? 'bg-pickle-green text-pickle-dark shadow-[0_0_15px_rgba(164,255,0,0.5)]' : idx === 1 ? 'bg-gray-300 text-gray-900 bg-gradient-to-tr from-gray-400 to-gray-100' : idx === 2 ? 'bg-amber-700 text-white bg-gradient-to-tr from-amber-800 to-amber-500' : 'bg-white/10 text-white'}`}>
@@ -420,9 +486,17 @@ const Tournaments = () => {
                                                     </div>
                                                     <span className="font-bold text-xl">{p.name}</span>
                                                 </div>
-                                                <div className="text-right">
-                                                    <span className="text-3xl font-black text-pickle-green">{p.wins}</span>
-                                                    <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em] block mt-1">Wins</span>
+                                                <div className="flex items-center gap-8 text-right">
+                                                    <div className="text-right">
+                                                        <span className={`text-2xl font-black ${p.pointDifferential > 0 ? 'text-pickle-green' : p.pointDifferential < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                                                            {p.pointDifferential > 0 ? `+${p.pointDifferential}` : p.pointDifferential}
+                                                        </span>
+                                                        <span className="text-[10px] text-gray-600 uppercase tracking-[0.2em] block mt-1">Point Diff</span>
+                                                    </div>
+                                                    <div className="text-right min-w-[60px]">
+                                                        <span className="text-3xl font-black text-white">{p.wins}</span>
+                                                        <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em] block mt-1">Wins</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
