@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { ShoppingBag, Star } from 'lucide-react'
+import PaddleCustomizer from './PaddleCustomizer'
 
 const ProductCard = ({ title, price, image, category, delay }) => (
     <motion.div
@@ -42,6 +43,10 @@ const Shop = () => {
                     <p className="text-xl text-gray-400">
                         High-performance gear engineered for the elite. The standard for the Electric Pickle Social Club.
                     </p>
+                </div>
+
+                <div className="mb-24 h-[700px] border border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
+                    <PaddleCustomizer />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
