@@ -28,6 +28,7 @@ const Navbar = () => {
         { name: 'Home', path: '/' },
         { name: 'Tournaments', path: '/tournaments' },
         { name: 'Events', path: '/events' },
+        { name: 'Round Robin', path: '/round-robin' },
         { name: 'Shop', path: '/shop' }
     ]
 
