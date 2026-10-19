@@ -5,6 +5,7 @@ import Footer from './components/Footer'
 import Home from './pages/Home'
 import Tournaments from './pages/Tournaments'
 import Events from './pages/Events'
+import RoundRobin from './pages/RoundRobin'
 import Shop from './pages/Shop'
 
 const ScrollToTop = () => {
@@ -26,6 +27,7 @@ const App = () => {
                         <Route path="/" element={<Home />} />
                         <Route path="/tournaments" element={<Tournaments />} />
                         <Route path="/events" element={<Events />} />
+                        <Route path="/round-robin" element={<RoundRobin />} />
                         <Route path="/shop" element={<Shop />} />
                     </Routes>
                 </main>
